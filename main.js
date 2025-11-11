@@ -1,67 +1,65 @@
-// Minimal pattern using an Emscripten style Module object.
-// Adjust to the boxedwine build's actual API.
+// main.js — Emscripten Module scaffold for BoxedWine builds
+statusEl.textContent = 'filesystem ready (IDBFS)';
+moduleReady = true;
+}
 
-const statusEl = document.getElementById('status');
-const screen = document.getElementById('screen');
 
-function log(s){ screen.textContent += s + "\n"; screen.scrollTop = screen.scrollHeight; }
+// Helper: write an uploaded file into the emscripten FS under /persistent/
+async function writeUploadedFile(file, destName){
+const ab = await file.arrayBuffer();
+const u8 = new Uint8Array(ab);
+const path = '/persistent/' + destName;
+try { Module.FS.unlink(path); } catch(e){}
+Module.FS.writeFile(path, u8, { canOwn: true });
+// flush MEM -> IDB
+await new Promise(resolve => Module.FS.syncfs(false, (err) => { if(err) log('syncfs save error: ' + err); resolve(); }));
+return path;
+}
 
-const Module = {
-  locateFile: (path) => 'boxedwine/' + path, // tells glue where .wasm/.data lives
-  preRun: [],
-  postRun: [],
-  print: (s) => { log(s); },
-  printErr: (s) => { log('ERR: ' + s); },
-  onRuntimeInitialized: async function() {
-    statusEl.textContent = 'runtime initialized';
-    // mount IDBFS at /persistent to persist files
-    try {
-      Module.FS.mkdir('/persistent');
-    } catch(e){}
-    Module.FS.mount(Module.IDBFS, {}, '/persistent');
-    // sync from IDB -> MEM on startup
-    await new Promise(resolve => Module.FS.syncfs(true, (err) => { if(err) console.error(err); resolve(); }));
-    statusEl.textContent = 'filesystem ready (IDBFS)';
-  }
-};
 
-// If boxedwine glue exposes a global factory, the included boxedwine.js usually
-// calls createModule(Module) automatically. If not, call it here. 
-// (Adjust according to the actual boxedwine build.)
-window.Module = Module;
+// Attempt to start the EXE using common BoxedWine entry patterns.
+// Different builds expose different wrappers — adapt as needed.
+function launchExe(exePath){
+log('launching: ' + exePath);
+// Typical Emscripten entry -- many builds provide callMain
+if(typeof Module.callMain === 'function'){
+try{
+// Example arg array: adapt to your boxedwine build API
+Module.callMain(['-root', '/persistent', '/bin/wine', exePath]);
+}catch(e){ log('callMain error: ' + e); }
+} else if(typeof Module.boxedwine_run === 'function'){
+try{ Module.boxedwine_run(['/persistent', exePath]); }
+catch(e){ log('boxedwine_run error: ' + e); }
+} else {
+log('No known launcher found on Module. Inspect your boxedwine build glue to find the entrypoint.');
+}
+}
 
-// UI: handle file upload -> write into IDBFS, then run wine
+
+// UI wiring
 document.getElementById('run-btn').addEventListener('click', async () => {
-  const input = document.getElementById('exe-file');
-  const f = input.files && input.files[0];
-  if(!f){ alert('pick an exe file'); return; }
-
-  statusEl.textContent = 'reading file...';
-  const ab = await f.arrayBuffer();
-  const data = new Uint8Array(ab);
-
-  // write into the emscripten FS under /persistent/user.exe
-  const path = '/persistent/user.exe';
-  try { Module.FS.unlink(path); } catch(e){}
-  Module.FS.writeFile(path, data, { canOwn: true });
-  // flush MEM -> IndexedDB
-  statusEl.textContent = 'saving to IDBFS...';
-  await new Promise(resolve => Module.FS.syncfs(false, (err) => { if(err) console.error(err); resolve(); }));
-
-  statusEl.textContent = 'launching...';
-  log('Starting user.exe via BoxedWine/Wine:');
-
-  // Typical Emscripten programs use ccall / callMain to invoke main.
-  // BoxedWine packaging may provide a wrapper like `boxedwine_run(['-root','/persistent', '/bin/wine','/persistent/user.exe'])`.
-  // Replace the line below with the actual API from the boxedwine build you include.
-  if (typeof Module.callMain === 'function') {
-    // example: call main with args; real boxedwine may use a different entrypoint
-    try {
-      Module.callMain(['-root', '/persistent', '/bin/wine', '/persistent/user.exe']);
-    } catch(e) {
-      log('callMain error: ' + e);
-    }
-  } else {
-    log('No callMain found in Module — adapt this to your boxedwine build API.');
-  }
+if(!moduleReady){ alert('Runtime not ready yet. Wait a moment.'); return; }
+const input = document.getElementById('exe-file');
+const f = input.files && input.files[0];
+if(!f){ alert('Pick an .exe file first'); return; }
+statusEl.textContent = 'saving file...';
+const saved = await writeUploadedFile(f, f.name);
+statusEl.textContent = 'running...';
+launchExe(saved);
 });
+
+
+// Reset persistent FS (WARNING: deletes /persistent contents)
+document.getElementById('reset-btn').addEventListener('click', async () =>{
+if(!confirm('Delete all files in the persistent filesystem?')) return;
+try{
+// remove files and clear IDB by syncing an empty FS
+const entries = Module.FS.readdir('/persistent');
+for(const e of entries){ if(e === '.' || e === '..') continue; try{ Module.FS.unlink('/persistent/' + e); }catch(_){} }
+}catch(e){ }
+await new Promise(resolve => Module.FS.syncfs(false, (err) => { if(err) log('syncfs clear error: ' + err); resolve(); }));
+log('persistent FS cleared');
+});
+
+
+export {};
