@@ -1,22 +1,29 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Browser Wine Shell (demo)</title>
-  <style>
-    body { font-family: system-ui, sans-serif; padding: 16px; }
-    #screen { width: 800px; height: 480px; background:#000; color:#0f0; padding:8px; overflow:auto; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>BoxedWine — Browser Shell</title>
+<style>
+body { font-family: system-ui, -apple-system, Roboto, "Segoe UI", Arial; padding: 18px; }
+#screen { width: 900px; max-width: 100%; height: 420px; background:#000; color:#0f0; padding:10px; overflow:auto; white-space:pre-wrap; }
+.controls { margin: 12px 0; }
+button { padding: 8px 12px; margin-right: 8px; }
+</style>
 </head>
 <body>
-  <h1>Browser Wine Shell — demo</h1>
-  <input id="exe-file" type="file" accept=".exe,.dll" />
-  <button id="run-btn">Write & Run</button>
-  <div id="status">status: idle</div>
-  <div id="screen">console output will appear here</div>
+<h1>BoxedWine — Browser Shell (starter)</h1>
+<div class="controls">
+<input id="exe-file" type="file" accept=".exe,.dll" />
+<button id="run-btn">Save & Run</button>
+<button id="reset-btn">Reset FS</button>
+</div>
+<div id="status">status: waiting for runtime</div>
+<div id="screen">console output will appear here</div>
 
-  <!-- BoxedWine/Emscripten JS -> you must build / provide these files -->
-  <script src="boxedwine/boxedwine.js"></script>
-  <script type="module" src="main.js"></script>
+
+<!-- Drop your boxedwine build files into /boxedwine/ (boxedwine.js, boxedwine.wasm, boxedwine.data etc.) -->
+<script src="boxedwine/boxedwine.js"></script>
+<script src="main.js" type="module"></script>
 </body>
 </html>
