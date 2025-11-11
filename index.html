@@ -1,29 +1,73 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>BoxedWine — Browser Shell</title>
-<style>
-body { font-family: system-ui, -apple-system, Roboto, "Segoe UI", Arial; padding: 18px; }
-#screen { width: 900px; max-width: 100%; height: 420px; background:#000; color:#0f0; padding:10px; overflow:auto; white-space:pre-wrap; }
-.controls { margin: 12px 0; }
-button { padding: 8px 12px; margin-right: 8px; }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BoxedWine — Browser Shell</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Roboto, "Segoe UI", Arial; padding: 18px; }
+    #screen { width: 900px; max-width: 100%; height: 420px; background:#000; color:#0f0; padding:10px; overflow:auto; white-space:pre-wrap; }
+    .controls { margin: 12px 0; }
+    button { padding: 8px 12px; margin-right: 8px; }
+    #network-errors { color: #c00; font-weight: bold; }
+  </style>
+
+  <!-- Inline Module config MUST appear before boxedwine.js so Emscripten glue can read it -->
+  <script>
+    // Helpful default Module config. locateFile points to boxedwine/ subfolder.
+    window.Module = window.Module || {};
+    (function(cfg){
+      cfg.locateFile = cfg.locateFile || function(path){ return 'boxedwine/' + path; };
+      cfg.noExitRuntime = true;
+      cfg.print = function(s){ appendLog('[WASM] ' + s); };
+      cfg.printErr = function(s){ appendLog('[WASM-ERR] ' + s); console.error('[WASM-ERR]', s); };
+      cfg.onRuntimeInitialized = function(){
+        appendLog('WASM runtime initialized');
+        window.BOXEDWINE_RUNTIME_READY = true;
+        if(typeof window.boxedwine_onready === 'function') window.boxedwine_onready();
+      };
+    })(window.Module);
+  </script>
 </head>
 <body>
-<h1>BoxedWine — Browser Shell (starter)</h1>
-<div class="controls">
-<input id="exe-file" type="file" accept=".exe,.dll" />
-<button id="run-btn">Save & Run</button>
-<button id="reset-btn">Reset FS</button>
-</div>
-<div id="status">status: waiting for runtime</div>
-<div id="screen">console output will appear here</div>
+  <h1>BoxedWine — Browser Shell (starter)</h1>
+  <div class="controls">
+    <input id="exe-file" type="file" accept=".exe,.dll" />
+    <button id="run-btn">Save & Run</button>
+    <button id="reset-btn">Reset FS</button>
+  </div>
 
+  <div id="status">status: waiting for runtime</div>
+  <div id="network-errors"></div>
+  <div id="screen">console output will appear here</div>
 
-<!-- Drop your boxedwine build files into /boxedwine/ (boxedwine.js, boxedwine.wasm, boxedwine.data etc.) -->
-<script src="boxedwine/boxedwine.js"></script>
-<script src="main.js" type="module"></script>
+  <!-- Load boxedwine glue AFTER Module is defined -->
+  <script src="boxedwine/boxedwine.js"></script>
+
+  <!-- Load app logic last -->
+  <script src="main.js"></script>
+
+  <script>
+    // small helpers referenced by Module config
+    function appendLog(s){
+      const screen = document.getElementById('screen');
+      screen.textContent += s + '\\n';
+      screen.scrollTop = screen.scrollHeight;
+    }
+
+    // show if resources failed to load (common cause of 404 -> syntax errors)
+    window.addEventListener('error', function(ev){
+      // network resource errors show as event.target with src/href
+      try {
+        const target = ev.target || ev.srcElement;
+        if(target && (target.src || target.href)){
+          const elUrl = target.src || target.href;
+          document.getElementById('network-errors').textContent =
+            'Resource failed to load (404 or network): ' + elUrl;
+          console.warn('Resource failed to load:', elUrl);
+        }
+      } catch(e){}
+    }, true);
+  </script>
 </body>
 </html>
