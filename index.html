@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Browser Wine Shell (demo)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 16px; }
+    #screen { width: 800px; height: 480px; background:#000; color:#0f0; padding:8px; overflow:auto; }
+  </style>
+</head>
+<body>
+  <h1>Browser Wine Shell — demo</h1>
+  <input id="exe-file" type="file" accept=".exe,.dll" />
+  <button id="run-btn">Write & Run</button>
+  <div id="status">status: idle</div>
+  <div id="screen">console output will appear here</div>
+
+  <!-- BoxedWine/Emscripten JS -> you must build / provide these files -->
+  <script src="boxedwine/boxedwine.js"></script>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
